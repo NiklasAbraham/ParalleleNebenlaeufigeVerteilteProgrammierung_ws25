@@ -6,8 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
-004/node_modules/
-004/out/
+04_Asynchrony/node_modules/
+04_Asynchrony/out/
 
 # Distribution / packaging
 .Python
