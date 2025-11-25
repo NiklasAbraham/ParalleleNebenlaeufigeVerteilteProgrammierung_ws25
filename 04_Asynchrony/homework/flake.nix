@@ -14,6 +14,10 @@
             nodejs_24
             vips
             pkg-config
+            python3
+            nodePackages.node-gyp
+            jdk25
+            hyperfine
           ];
         };
       };

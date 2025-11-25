@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "node-addon-api": "^8.0.0"
   }
 }
