@@ -7,8 +7,11 @@ import (
 )
 
 var accounts [100]int
+var mutex sync.Mutex
 
 func transfer(amount int, source int, target int) bool {
+	mutex.Lock()
+	defer mutex.Unlock()
 	if accounts[source] < amount {
 		return false
 	}
