@@ -41,6 +41,59 @@ git merge upstream/main
 
 Repeat `fetch`/`merge` regularly to stay up to date with new course material.
 
+## Nix Cleanup Guide (Ubuntu, Non-NixOS)
+
+This procedure removes old development shells, unused store paths, stale flake inputs, and root-owned GC roots. It safely frees disk space without uninstalling Nix.
+
+### 1. Remove stale GC roots from `nix develop`
+
+```bash
+sudo rm -f /nix/var/nix/gcroots/auto/*
+```
+
+### 2. Ensure root can access Nix binaries
+
+If needed, adjust sudo secure_path via:
+
+```bash
+sudo visudo
+```
+
+Add:
+
+```
+Defaults secure_path="/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/default/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+```
+
+### 3. Full garbage collection
+
+```bash
+sudo nix-collect-garbage --delete-old
+sudo nix-store --gc
+```
+
+### 4. Deduplicate and optimize store
+
+```bash
+sudo nix-store --optimize
+```
+
+### Optional: Create a clean profile for your user
+
+```bash
+sudo mkdir -p /nix/var/nix/profiles/per-user/$USER
+sudo chown -R $USER:$USER /nix/var/nix/profiles/per-user/$USER
+nix profile install nixpkgs#hello
+```
+
+### Verify cleanup impact
+
+```bash
+sudo du -sh /nix/store
+```
+
+A significant reduction (several GB reclaimed) confirms success.
+
 ## License
 
 The material is licensed under the Creative Commons Attribution 4.0

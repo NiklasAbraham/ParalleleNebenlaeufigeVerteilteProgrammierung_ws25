@@ -1,0 +1,5 @@
+accounts,iterations,haskell_time,go_time,speedup,faster
+100,100000,0.356,1.200,3.37,Haskell
+10000,1000000,2.547,11.649,4.57,Haskell
+10,10000,0.162,0.207,1.27,Haskell
+100000,1000000,7.090,12.214,1.72,Haskell

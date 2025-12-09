@@ -7,7 +7,7 @@
 module Main where
 
 import GHC.Generics
-import Data.IORef
+import Control.Concurrent.STM
 import Control.Monad.IO.Class
 import Servant
 import Data.Aeson
@@ -29,20 +29,21 @@ instance ToJSON BookingResponse
 
 type API = "book" :> ReqBody '[JSON] BookingRequest :> Post '[JSON] BookingResponse :<|> Raw
 
-server :: IORef [Int] -> BookingRequest -> Handler BookingResponse
+server :: TVar [Int] -> BookingRequest -> Handler BookingResponse
 server daysRef request = liftIO do
-  booked <- readIORef daysRef
-  let requested = days request
-  if any (`elem` booked) requested
-    then do
-      return (BookingResponse False booked)
-    else do
-      let newBooked = booked ++ requested
-      writeIORef daysRef newBooked
-      return (BookingResponse True newBooked)
+  atomically do
+    booked <- readTVar daysRef
+    let requested = days request
+    if any (`elem` booked) requested
+      then do
+        return (BookingResponse False booked)
+      else do
+        let newBooked = booked ++ requested
+        writeTVar daysRef newBooked
+        return (BookingResponse True newBooked)
 
 main = do
-  daysRef <- newIORef []
+  daysRef <- newTVarIO []
   run 8080 do
     serve (Proxy :: Proxy API) (server daysRef :<|> serveDirectoryWebApp "static")
 

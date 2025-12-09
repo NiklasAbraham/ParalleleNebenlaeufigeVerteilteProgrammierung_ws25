@@ -6,8 +6,27 @@ __pycache__/
 # C extensions
 *.so
 
+# Haskell
+*.hi
+*.o
+*.exe
+*.exe.stack-work/
+*.exe.stack-work/dist/
+*.exe.stack-work/dist-newstyle/
+*.exe.stack-work/dist-newstyle/build/
+*.exe.stack-work/dist-newstyle/build/x86_64-linux-ghc-9.6.5/
+
+# Go
+main
 04_Asynchrony/node_modules/
 04_Asynchrony/out/
+
+# nix
+result
+result-*
+result-*/
+result-*/bin/
+result-*/bin/
 
 # Distribution / packaging
 .Python
