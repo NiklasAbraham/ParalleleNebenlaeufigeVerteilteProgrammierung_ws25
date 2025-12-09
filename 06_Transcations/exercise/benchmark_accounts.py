@@ -279,6 +279,7 @@ def main():
         labels = [f"{r['accounts']} acc, {r['iterations']} iter" for r in data]
         haskell_times = [float(r["haskell_time"]) for r in data]
         go_times = [float(r["go_time"]) for r in data]
+        speedups = [float(r["speedup"]) for r in data]
 
         fig, ax = plt.subplots(figsize=(10, 6))
         x = range(len(labels))
@@ -298,6 +299,19 @@ def main():
             label="Go Locks",
             color="#ff7f50",
         )
+
+        # Add speedup labels above bars
+        for i, (h_time, g_time, speedup) in enumerate(zip(haskell_times, go_times, speedups)):
+            max_time = max(h_time, g_time)
+            ax.text(
+                i,
+                max_time + max_time * 0.05,
+                f"{speedup:.2f}x",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
 
         ax.set_xlabel("Configuration")
         ax.set_ylabel("Time (seconds)")
