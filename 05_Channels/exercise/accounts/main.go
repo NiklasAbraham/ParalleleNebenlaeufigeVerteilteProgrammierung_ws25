@@ -6,17 +6,18 @@ import (
 	"sync"
 )
 
-var accounts [100]int
+var accounts [10000]int
 var mutex sync.Mutex
 
 func transfer(amount int, source int, target int) bool {
 	mutex.Lock()
-	defer mutex.Unlock()
 	if accounts[source] < amount {
+	  mutex.Unlock()
 		return false
 	}
 	accounts[source] = accounts[source] - amount
 	accounts[target] = accounts[target] + amount
+	mutex.Unlock()
 	return true
 }
 
@@ -28,11 +29,11 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	for i:= range 100000 {
+	for i:= range 1000000 {
 		random := rand.New(rand.NewSource(int64(i)))
 		source := random.Intn(len(accounts))
 		target := random.Intn(len(accounts))
-		amount := random.Intn(100)
+		amount := random.Intn(1000)
 		wg.Add(1)
 		go func() {
 			for !transfer(amount, source, target) { }

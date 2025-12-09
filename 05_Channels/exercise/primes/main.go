@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func generate(n int, channel chan<- int) {
 	for i := 2; i <= n; i++ {
@@ -10,28 +13,34 @@ func generate(n int, channel chan<- int) {
 }
 
 func filter(prime int, input <-chan int, output chan<- int) {
-	for num := range input {
-		if num%prime != 0 {
-			output <- num
+	for n := range input {
+		if n%prime != 0 {
+			output <- n
 		}
 	}
 	close(output)
 }
 
 func main() {
-	n := 100
+	n := 1000000
 
-	ch := make(chan int)
-	go generate(n, ch)
+	start := time.Now()
+
+	input := make(chan int)
+	go generate(n, input)
 
 	for {
-		prime, ok := <-ch
+		prime, ok := <-input
 		if !ok {
-			break
+			break 
 		}
+
 		fmt.Println(prime)
-		nextCh := make(chan int)
-		go filter(prime, ch, nextCh)
-		ch = nextCh
+
+		next := make(chan int)
+		go filter(prime, input, next)
+		input = next 
 	}
+
+	fmt.Printf("Sieved up to %d in %s\n", n, time.Since(start))
 }
