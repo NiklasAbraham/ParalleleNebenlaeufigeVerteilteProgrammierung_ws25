@@ -102,8 +102,9 @@ n = {n}
 first = spawn(fn -> Primes.sieve() end)
 Primes.generate(n, first)
 
-# Keep process alive briefly to allow output to flush
-Process.sleep(100)
+# Keep process alive to allow all actors to finish processing
+# For larger n, this needs to be much longer to ensure all primes are printed
+Process.sleep(max(5000, div(n, 2)))
 """
     output_file.write_text(content)
 
@@ -260,7 +261,25 @@ def run_elixir_watch_output(elixir_file, target_prime):
     )
 
     try:
-        for line in process.stdout:
+        # Read lines until we find the target or process ends
+        while True:
+            # Read a line from stdout
+            line = process.stdout.readline()
+            if not line:
+                # EOF reached, check if process finished
+                if process.poll() is not None:
+                    # Process finished, read any remaining output from buffer
+                    remaining = process.stdout.read()
+                    if remaining:
+                        for rem_line in remaining.split("\n"):
+                            rem_line = rem_line.strip()
+                            if rem_line.isdigit():
+                                prime = int(rem_line)
+                                if prime == target_prime:
+                                    time_when_found = time.perf_counter() - start_time
+                                    break
+                break
+
             line = line.strip()
             if line.isdigit():
                 prime = int(line)
@@ -270,10 +289,19 @@ def run_elixir_watch_output(elixir_file, target_prime):
                     process.terminate()
                     break
 
-        # Wait for process to finish
-        process.wait(timeout=2)
-    except subprocess.TimeoutExpired:
-        process.kill()
+        # Wait for process to finish (with timeout)
+        if process.poll() is None:
+            try:
+                process.wait(timeout=600)
+            except subprocess.TimeoutExpired:
+                process.kill()
+
+        # Check for errors
+        if process.returncode != 0 and process.returncode is not None:
+            stderr_output = process.stderr.read()
+            if stderr_output:
+                print(f"    Elixir stderr: {stderr_output[:200]}")
+
     except Exception as e:
         process.kill()
         raise e
@@ -439,11 +467,11 @@ def main():
     # Test different values of n (upper limit for prime sieving)
     configs = [
         100,
-        # 1000,
-        # 10_000,  # Small
-        # 50_000,  # Medium-small
-        # 100_000,  # Medium
-        # 500_000,  # Medium-large
+        1000,
+        10_000,  # Small
+        50_000,  # Medium-small
+        100_000,  # Medium
+        500_000,  # Medium-large
         # 1_000_000,  # Large
     ]
 
