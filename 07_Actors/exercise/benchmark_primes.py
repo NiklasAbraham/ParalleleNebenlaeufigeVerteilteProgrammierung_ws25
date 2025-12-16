@@ -25,44 +25,53 @@ def create_elixir(n, output_file):
     send(pid, :done)
   end
 
-  def sieve() do
+  def sieve(parent) do
     receive do
       {{:number, prime}} ->
-        next = spawn(fn -> Primes.filter_loop(prime, nil) end)
-        sieve_loop(next)
+        next = spawn(fn -> Primes.filter_loop(prime, nil, self()) end)
+        sieve_loop(next, parent)
       :done ->
+        send(parent, :finished)
         :ok
     end
   end
 
-  def sieve_loop(next) do
+  def sieve_loop(next, parent) do
     receive do
       {{:number, n}} ->
         send(next, {{:number, n}})
-        sieve_loop(next)
+        sieve_loop(next, parent)
       :done ->
         send(next, :done)
+        receive do
+          :finished -> send(parent, :finished)
+        end
         :ok
     end
   end
 
-  def filter_loop(prime, next) do
+  def filter_loop(prime, next, parent) do
     receive do
       {{:number, n}} ->
         if rem(n, prime) != 0 do
           if next == nil do
-            new_next = spawn(fn -> Primes.filter_loop(n, nil) end)
-            filter_loop(prime, new_next)
+            new_next = spawn(fn -> Primes.filter_loop(n, nil, self()) end)
+            filter_loop(prime, new_next, parent)
           else
             send(next, {{:number, n}})
-            filter_loop(prime, next)
+            filter_loop(prime, next, parent)
           end
         else
-          filter_loop(prime, next)
+          filter_loop(prime, next, parent)
         end
       :done ->
         if next != nil do
           send(next, :done)
+          receive do
+            :finished -> send(parent, :finished)
+          end
+        else
+          send(parent, :finished)
         end
         :ok
     end
@@ -71,14 +80,16 @@ end
 
 n = {n}
 start = System.monotonic_time(:millisecond)
-first = spawn(fn -> Primes.sieve() end)
+first = spawn(fn -> Primes.sieve(self()) end)
 Primes.generate(n, first)
 
-# Wait for completion - use a timeout based on n
-# Rough estimate: need time for all messages to propagate through the pipeline
-# The number of primes is approximately n / log(n), so we need time proportional to that
-wait_time = max(2000, div(n, 500))
-Process.sleep(wait_time)
+# Wait for actual completion signal
+receive do
+  :finished -> :ok
+after
+  120_000 -> IO.puts("Timeout waiting for completion")
+end
+
 elapsed = System.monotonic_time(:millisecond) - start
 IO.puts("Sieved up to #{{n}} in #{{elapsed}} ms")
 """
