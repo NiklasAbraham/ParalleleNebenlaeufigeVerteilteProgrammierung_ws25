@@ -68,8 +68,14 @@ Defaults secure_path="/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/de
 ### 3. Full garbage collection
 
 ```bash
-sudo nix-collect-garbage --delete-old
+sudo nix-collect-garbage -d
 sudo nix-store --gc
+```
+
+**Note:** If these commands are not found when using `sudo`, ensure you completed step 2 to adjust the `secure_path`. Alternatively, you can use the full path:
+```bash
+sudo /nix/var/nix/profiles/default/bin/nix-collect-garbage -d
+sudo /nix/var/nix/profiles/default/bin/nix-store --gc
 ```
 
 ### 4. Deduplicate and optimize store
