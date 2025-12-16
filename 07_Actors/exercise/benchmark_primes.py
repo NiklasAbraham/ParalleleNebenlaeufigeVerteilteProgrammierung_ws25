@@ -377,10 +377,10 @@ def main():
         100,
         1000,
         10_000,  # Small
-        # 50_000,  # Medium-small
-        # 100_000,  # Medium
-        # 500_000,  # Medium-large
-        # 1_000_000,  # Large
+        50_000,  # Medium-small
+        100_000,  # Medium
+        500_000,  # Medium-large
+        1_000_000,  # Large
     ]
 
     results = []
