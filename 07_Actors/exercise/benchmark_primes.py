@@ -14,6 +14,28 @@ GO_DIR = SCRIPT_DIR.parent.parent / "05_Channels" / "exercise" / "primes"
 JAVA_DIR = SCRIPT_DIR.parent.parent / "03_Tasks" / "exercise"
 
 
+def is_prime(n):
+    """Check if n is prime."""
+    if n < 2:
+        return False
+    if n == 2:
+        return True
+    if n % 2 == 0:
+        return False
+    for i in range(3, int(n**0.5) + 1, 2):
+        if n % i == 0:
+            return False
+    return True
+
+
+def largest_prime_le(n):
+    """Find the largest prime less than or equal to n."""
+    for i in range(n, 1, -1):
+        if is_prime(i):
+            return i
+    return None
+
+
 def create_elixir(n, output_file):
     """Create parameterized Elixir program."""
     content = f"""defmodule Primes do
@@ -25,73 +47,63 @@ def create_elixir(n, output_file):
     send(pid, :done)
   end
 
-  def sieve(parent) do
+  def sieve() do
     receive do
       {{:number, prime}} ->
-        next = spawn(fn -> Primes.filter_loop(prime, nil, self()) end)
-        sieve_loop(next, parent)
+        IO.puts(prime)
+        next = spawn(fn -> Primes.filter(prime) end)
+        sieve_loop(next)
       :done ->
-        send(parent, :finished)
         :ok
     end
   end
 
-  def sieve_loop(next, parent) do
+  def sieve_loop(next) do
     receive do
       {{:number, n}} ->
         send(next, {{:number, n}})
-        sieve_loop(next, parent)
+        sieve_loop(next)
       :done ->
         send(next, :done)
-        receive do
-          :finished -> send(parent, :finished)
-        end
         :ok
     end
   end
 
-  def filter_loop(prime, next, parent) do
+  def filter(prime) do
     receive do
       {{:number, n}} ->
         if rem(n, prime) != 0 do
-          if next == nil do
-            new_next = spawn(fn -> Primes.filter_loop(n, nil, self()) end)
-            filter_loop(prime, new_next, parent)
-          else
-            send(next, {{:number, n}})
-            filter_loop(prime, next, parent)
-          end
+          IO.puts(n)
+          next = spawn(fn -> Primes.filter(n) end)
+          filter_loop(prime, next)
         else
-          filter_loop(prime, next, parent)
+          filter(prime)
         end
       :done ->
-        if next != nil do
-          send(next, :done)
-          receive do
-            :finished -> send(parent, :finished)
-          end
-        else
-          send(parent, :finished)
+        :ok
+    end
+  end
+
+  def filter_loop(prime, next) do
+    receive do
+      {{:number, n}} ->
+        if rem(n, prime) != 0 do
+          send(next, {{:number, n}})
         end
+        filter_loop(prime, next)
+      :done ->
+        send(next, :done)
         :ok
     end
   end
 end
 
 n = {n}
-start = System.monotonic_time(:millisecond)
-first = spawn(fn -> Primes.sieve(self()) end)
+first = spawn(fn -> Primes.sieve() end)
 Primes.generate(n, first)
 
-# Wait for actual completion signal
-receive do
-  :finished -> :ok
-after
-  120_000 -> IO.puts("Timeout waiting for completion")
-end
-
-elapsed = System.monotonic_time(:millisecond) - start
-IO.puts("Sieved up to #{{n}} in #{{elapsed}} ms")
+# Keep process alive briefly to allow output to flush
+Process.sleep(100)
 """
     output_file.write_text(content)
 
@@ -229,6 +241,46 @@ def run_in_nix(work_dir, cmd, cwd=None):
     return result
 
 
+def run_elixir_watch_output(elixir_file, target_prime):
+    """Run Elixir program and watch for target prime in output."""
+    nix_cmd = [
+        "nix",
+        "develop",
+        str(SCRIPT_DIR),
+        "--command",
+        "elixir",
+        str(elixir_file),
+    ]
+
+    start_time = time.perf_counter()
+    time_when_found = None
+
+    process = subprocess.Popen(
+        nix_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
+    )
+
+    try:
+        for line in process.stdout:
+            line = line.strip()
+            if line.isdigit():
+                prime = int(line)
+                if prime == target_prime:
+                    time_when_found = time.perf_counter() - start_time
+                    # Found it! Kill the process
+                    process.terminate()
+                    break
+
+        # Wait for process to finish
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        process.kill()
+    except Exception as e:
+        process.kill()
+        raise e
+
+    return time_when_found
+
+
 def extract_time_from_output(output):
     """Extract time in milliseconds or seconds from program output."""
     import re
@@ -295,23 +347,24 @@ def benchmark_config(n, num_runs=10):
         go_times = []
         java_times = []
 
-        for i in range(num_runs):
-            # Run Elixir
-            start = time.perf_counter()
-            result = run_in_nix(SCRIPT_DIR, ["elixir", str(elixir_file)])
-            elapsed = time.perf_counter() - start
+        # Find the target prime (largest prime <= n)
+        target_prime = largest_prime_le(n)
+        if target_prime is None:
+            print(f"No prime <= {n}, skipping")
+            return (None, 0.0), (None, 0.0), (None, 0.0)
 
-            if result.returncode == 0:
-                # Try to extract time from output, otherwise use wall clock time
-                extracted_time = extract_time_from_output(result.stdout)
-                if extracted_time is not None:
-                    elixir_times.append(extracted_time)
-                    print(f"  Elixir run {i + 1}: {extracted_time:.3f}s (from output)")
-                else:
-                    elixir_times.append(elapsed)
-                    print(f"  Elixir run {i + 1}: {elapsed:.3f}s (wall clock)")
+        print(f"  Target prime (largest <= {n}): {target_prime}")
+
+        for i in range(num_runs):
+            # Run Elixir - watch for target prime
+            elapsed = run_elixir_watch_output(elixir_file, target_prime)
+            if elapsed is not None:
+                elixir_times.append(elapsed)
+                print(
+                    f"  Elixir run {i + 1}: {elapsed:.3f}s (found prime {target_prime})"
+                )
             else:
-                print(f"  Elixir run {i + 1} failed: {result.stderr}")
+                print(f"  Elixir run {i + 1} failed: target prime not found")
 
             # Run Go
             start = time.perf_counter()
@@ -386,12 +439,12 @@ def main():
     # Test different values of n (upper limit for prime sieving)
     configs = [
         100,
-        1000,
-        10_000,  # Small
-        50_000,  # Medium-small
-        100_000,  # Medium
-        500_000,  # Medium-large
-        1_000_000,  # Large
+        # 1000,
+        # 10_000,  # Small
+        # 50_000,  # Medium-small
+        # 100_000,  # Medium
+        # 500_000,  # Medium-large
+        # 1_000_000,  # Large
     ]
 
     results = []
