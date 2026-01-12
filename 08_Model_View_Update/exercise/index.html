@@ -1,0 +1,26 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Chat Client</title>
+        <script type="text/javascript" src="chat.js"></script>
+    </head>
+    <body>
+        <div id="app"></div>
+    </body>
+    <script type="text/javascript">
+     var app = Elm.Chat.init({
+         node: document.getElementById('app')
+     });
+
+     var socket = new WebSocket('ws://127.0.0.1:8080');
+
+     app.ports.sendMessage.subscribe(function(message) {
+         socket.send(message);
+     });
+
+     socket.addEventListener("message", function(event) {
+         app.ports.messageReceiver.send(event.data);
+     });
+    </script>
+</html>
