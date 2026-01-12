@@ -21,8 +21,32 @@ init _ = ( { prices = [], status = Loading }, fetchPrice )
 
 type Event = Tick | GotPrice (Result Http.Error Float)
 
+-- Update logic for events: Tick refetches price,
+-- GotPrice handles HTTP results and updates graph/state.
 update : Event -> State -> ( State, Cmd Event )
-update event state = Debug.todo "update"
+update event state = 
+    case event of
+        -- On timer tick, show loading, fetch price
+        Tick ->
+            ( { state | status = Loading }, fetchPrice )
+        -- Successfully got a price: update with new point, keep only last 30 points
+        GotPrice (Ok price) ->
+            let
+                newPrices = price :: state.prices
+                limitedPrices = List.take 30 newPrices
+            in
+                ( { state | status = Loaded price, prices = limitedPrices }, Cmd.none )
+        -- Got an HTTP error: put the error in the status field
+        GotPrice (Err error) ->
+            let
+                errorMsg = case error of
+                    Http.BadUrl url -> "Bad URL: " ++ url
+                    Http.Timeout -> "Request timed out"
+                    Http.NetworkError -> "Network error"
+                    Http.BadStatus status -> "Bad status: " ++ String.fromInt status
+                    Http.BadBody body -> "Bad body: " ++ body
+            in
+                ( { state | status = Error errorMsg }, Cmd.none )
 
 fetchPrice : Cmd Event
 fetchPrice =
@@ -59,33 +83,35 @@ viewStatus status = case status of
       ]
 
 viewGraph : List Float -> Html Event
-viewGraph prices = if List.isEmpty prices
-    then
+viewGraph prices = 
+    if List.isEmpty prices then
         div [] []
     else
-      let
-          minPrice = List.minimum prices |> Maybe.withDefault 0
-          maxPrice = List.maximum prices |> Maybe.withDefault 0
-          range = maxPrice - minPrice
-          scale = if range > 0 then 100 / range else 1
-          pointsString = prices
-              |> List.indexedMap (\i p ->
-                  String.fromInt (i * 10) ++ "," ++ String.fromFloat (100 - (p - minPrice) * scale))
-              |> String.join " "
-      in svg [
-          viewBox "0 0 300 120",
-          style "width" "600px",
-          style "height" "240px",
-          style "border" "1px solid #ccc",
-          style "margin-top" "20px"
-        ] [
-          polyline [
-              points pointsString,
-              fill "none",
-              stroke "#3498db",
-              strokeWidth "2"
-            ] []
-        ]
+        let
+            minPrice = List.minimum prices |> Maybe.withDefault 0
+            maxPrice = List.maximum prices |> Maybe.withDefault 0
+            range = maxPrice - minPrice
+            -- vertical scaling to fit SVG
+            scale = if range > 0 then 80 / range else 1
+            -- Calculate points string for SVG polyline
+            pointsString = prices
+                |> List.indexedMap (\i p ->
+                    String.fromInt (i * 10) ++ "," ++ String.fromFloat (100 - (p - minPrice) * scale))
+                |> String.join " "
+        in svg [
+            viewBox "0 0 300 120",
+            style "width" "600px",
+            style "height" "240px",
+            style "border" "1px solid #ccc",
+            style "margin-top" "20px"
+          ] [
+            polyline [
+                points pointsString,
+                fill "none",
+                stroke "#3498db",
+                strokeWidth "2"
+              ] []
+          ]
 
 main : Program () State Event
 main = Browser.element {
