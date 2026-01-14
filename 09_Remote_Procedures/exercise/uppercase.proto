@@ -1,0 +1,15 @@
+syntax = "proto3";
+package uppercase;
+
+service Uppercaser {
+    rpc ToUpper (TextRequest) returns (TextReply);
+}
+
+message TextRequest {
+    string text = 1;
+}
+
+message TextReply {
+    string text = 1;
+}
+
