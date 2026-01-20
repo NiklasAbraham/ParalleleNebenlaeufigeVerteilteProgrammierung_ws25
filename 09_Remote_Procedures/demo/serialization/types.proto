@@ -1,0 +1,25 @@
+
+syntax = "proto3";
+
+option go_package = "./types";
+
+message Result {
+    oneof result {
+        string success = 1;
+        string failure = 2;
+    }
+}
+
+message Tree {
+    int32 value = 1;
+    repeated Tree children = 2;
+}
+
+message Node {
+    int32 id = 1;
+    string data = 2;
+    repeated int32 children = 3;
+}
+
+// no support for exceptions
+

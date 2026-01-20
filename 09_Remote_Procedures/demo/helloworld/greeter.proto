@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package greeter;
+
+option go_package = "demo/greeter";
+option java_package = "greeter";
+
+service Sayer {
+    rpc SayHello (HelloRequest) returns (HelloReply);
+}
+
+service Asker {
+    rpc AskHello (HelloRequest) returns (HelloReply);
+}
+
+message HelloRequest {
+    string name = 1;
+}
+
+message HelloReply {
+    string message = 1;
+}
